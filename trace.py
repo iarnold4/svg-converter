@@ -33,6 +33,9 @@ Upscaling (on by default, --upscale 2):
 
 Every vtracer parameter can be overridden on the command line (see --help).
 """
+# /// script
+# dependencies = ["vtracer", "pillow"]
+# ///
 
 import argparse
 import glob

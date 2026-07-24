@@ -13,6 +13,9 @@ Output files are named <input>-<width>w.png by default so different sizes never
 collide, and so rendering logo.svg next to the logo.png it was traced from
 can't overwrite the original.
 """
+# /// script
+# dependencies = ["resvg-py", "pillow"]
+# ///
 
 import argparse
 import glob

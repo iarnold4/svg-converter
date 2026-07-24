@@ -8,9 +8,36 @@ Two tools:
 
 ## Setup
 
+### With uv (recommended; Ubuntu/Debian or anywhere)
+
+Both scripts declare their own dependencies inline (PEP 723), so with
+[uv](https://docs.astral.sh/uv/) there is no setup step at all — no venv, no
+pip install. Just run them with `uv run` instead of `python`:
+
+```
+uv run trace.py yourlogo.png
+uv run render.py logo.svg --scale 4
+```
+
+The first run resolves and caches the dependencies (and a Python, if the
+system doesn't have one); later runs start instantly. Everywhere the examples
+below say `python`, `uv run` works the same.
+
+If you don't have uv yet (it's not in the apt repos):
+
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+then restart your shell (or `source ~/.bashrc`).
+
+### Without uv
+
 ```
 pip install vtracer pillow resvg-py
 ```
+
+and use `python trace.py` / `python render.py` as in the examples below.
 
 ## trace.py usage
 
