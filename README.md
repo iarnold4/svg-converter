@@ -1,8 +1,10 @@
 # svg-converter
 
-Two tools:
+Three tools:
 
 - **trace.py**: raster logos (PNG/JPG) to SVG with [vtracer](https://github.com/visioncortex/vtracer)
+- **centerline.py**: line-art / script logos to a single-stroke *centerline*
+  SVG — the pen path, for stroke-drawing animations, plotters, engraving
 - **render.py**: SVGs back to PNG at any resolution with resvg (like for print-res
   deliverables from a traced master)
 
@@ -34,7 +36,7 @@ then restart your shell (or `source ~/.bashrc`).
 ### Without uv
 
 ```
-pip install vtracer pillow resvg-py
+pip install vtracer pillow resvg-py numpy scipy scikit-image
 ```
 
 and use `python trace.py` / `python render.py` as in the examples below.
@@ -53,6 +55,55 @@ Outputs default to the **current working directory** (`<input-name>.svg`), not
 the input's folder. `-o` takes either a `.svg` file path (single input) or a
 directory (any number of inputs). `~` and `*` wildcards work in any shell;
 the scripts expand them, so PowerShell behaves like bash.
+
+## centerline.py usage
+
+Where trace.py outlines the *silhouette* of each shape as a filled path,
+centerline.py recovers the *pen path*: one open path down the middle of the
+stroke, endpoint to endpoint. A filled outline animated with
+`stroke-dashoffset` traces the perimeter; a centerline traces the stroke the
+way a pen would draw it — which is the whole point for logo-drawing
+animations.
+
+```
+python centerline.py logo.png                    # writes ./logo.centerline.svg
+python centerline.py logo.png --ink '#3C2108'    # only these colors are stroke (repeatable)
+python centerline.py logo.png --reverse          # draw from the other endpoint
+python centerline.py logo.png --stroke-width 8   # override the measured width
+```
+
+Same `-i`/`-o`/cwd/glob conventions as trace.py, but the default output name
+is `<input>.centerline.svg` so it can sit next to trace.py's `<input>.svg` —
+keep both: the filled trace for static display, the centerline for animation.
+
+How: binarize → medial-axis skeleton → prune spurs → walk endpoint to
+endpoint, continuing straightest through self-crossings like a pen would;
+stretches where the stroke merges with itself are covered out-and-back. The
+result is stroke geometry (`fill="none"`, round caps) at the measured median
+stroke width, colored by sampling the source (`--stroke` overrides). The run
+prints each path's endpoints so you know where the animation starts and ends.
+
+Animating the output:
+
+```css
+path { stroke-dasharray: var(--len); stroke-dashoffset: var(--len); }
+/* transition/animate stroke-dashoffset to 0 */
+```
+
+with `--len` from `path.getTotalLength()`.
+
+Gotchas:
+
+- Good inputs are strokes of roughly constant width (script wordmarks,
+  signatures, line icons). Solid filled shapes have no meaningful centerline —
+  use trace.py for those.
+- Decorative marks touching the stroke (endpoint dots, serifs) get absorbed
+  into the skeleton. Exclude them by color with `--ink <stroke-hex>`; note a
+  dot with an outline in the stroke color will still leave its outline behind.
+- Tiny sources fragment (stroke and ornament widths converge). Trace the
+  largest raster you have; `--upscale` smooths but can't add information.
+- If one stroke comes out as several paths, raise `--prune` (junction/spur
+  cleanup) — or lower it if real short branches are being eaten.
 
 ## render.py usage
 
