@@ -115,10 +115,12 @@ def true_palette(path, thresh=50, min_frac=0.004):
     """Extract the logo's real colors from opaque pixels of the source image.
 
     Greedy-merges the exact-color histogram: the most frequent color anchors a
-    cluster; any later color within `thresh` (RGB euclidean) folds into an
-    existing anchor, otherwise starts a new one. Colors covering less than
-    `min_frac` of opaque pixels are ignored as noise. This recovers the handful
-    of flat brand colors while collapsing anti-aliasing variants.
+    cluster; any later color within `thresh` (RGB euclidean) folds into the
+    nearest anchor, otherwise starts a new one. Clusters whose TOTAL coverage
+    is below `min_frac` of opaque pixels are dropped as noise. Judging clusters
+    (not individual exact colors) matters for gradient/anti-aliased regions: a
+    gradient can cover thousands of pixels without any single exact color
+    clearing min_frac, and cutting the histogram early would miss it entirely.
     """
     with Image.open(path) as im:
         raw = im.convert("RGBA").tobytes()  # flat R,G,B,A bytes
@@ -128,15 +130,19 @@ def true_palette(path, thresh=50, min_frac=0.004):
         return []
     total = len(opaque)
     t2 = thresh * thresh
-    anchors = []  # list of (r,g,b)
+    anchors = []  # list of [(r,g,b), cluster_pixel_count]
     for col, n in Counter(opaque).most_common():
-        if n / total < min_frac:
-            break
-        if any((a[0] - col[0]) ** 2 + (a[1] - col[1]) ** 2 + (a[2] - col[2]) ** 2 <= t2
-               for a in anchors):
-            continue
-        anchors.append(col)
-    return anchors
+        best = None
+        best_d = t2 + 1
+        for a in anchors:
+            d = (a[0][0] - col[0]) ** 2 + (a[0][1] - col[1]) ** 2 + (a[0][2] - col[2]) ** 2
+            if d <= t2 and d < best_d:
+                best, best_d = a, d
+        if best is not None:
+            best[1] += n
+        else:
+            anchors.append([col, n])
+    return [tuple(a[0]) for a in anchors if a[1] / total >= min_frac]
 
 
 def quantize_to_palette(rgba, anchors):
