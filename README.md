@@ -47,7 +47,9 @@ and use `python trace.py` / `python render.py` as in the examples below.
 python trace.py yourlogo.png                     # gradient preset + palette snap, writes ./yourlogo.svg
 python trace.py -i yourlogo.png -o out.svg       # explicit input/output paths
 python trace.py *.png -o svgs/                   # batch into a directory (created if missing)
+python trace.py -i ~/Pictures/logos -o svgs/     # a directory input = every image inside it
 python trace.py yourlogo.png -p flat             # flat preset (solid-color logos)
+python trace.py yourlogo.png --clean             # force residue repair (see Automatic settings)
 python trace.py yourlogo.png --color-precision 8 --filter-speckle 2   # override any knob
 ```
 
@@ -119,6 +121,26 @@ Same `-i`/`-o`/cwd conventions as trace.py. Output files are named
 collide, and so rendering `logo.svg` next to the `logo.png` it was traced
 from can't overwrite the original.
 
+## Automatic settings (default)
+
+The plain command with no flags measures each image and picks settings per
+file, printing what it chose (`auto: upscale=3 smooth=3 clean=off
+snap-colors=off, palette coverage 100%`):
+
+- **upscale**: 3 below 400px, 2 below 1400px, else 1.
+- **clean**: on when the image border is opaque near-white (artwork on an
+  intact white background).
+- **snap-colors**: 32 when the clustered brand palette covers less than 85%
+  of opaque pixels (a real-gradient logo), else off.
+- **smooth**: always 3.
+
+Any explicit flag overrides its auto value; `--no-auto` disables the whole
+thing. When a result looks off, the printed line shows exactly what was
+chosen, so dialing in is usually one flag: soft drop shadows or matte fringes
+on a transparent PNG -> add `--clean`; soft glows being eaten -> `--no-clean`;
+banding on gradients -> raise `--snap-colors`; lumpy small text -> lower
+`--smooth`.
+
 ## Presets (`-p`)
 
 - `gradient` (default): flat-looking logos with subtle shading, 3D shadows, or anti-aliasing.
@@ -141,10 +163,43 @@ quantization can drift them slightly.
   (default 50; RGB distance). Lower keeps more distinct colors; raise it if two
   brand colors are close and one is swallowing the other, lower it if distinct
   shades are being flattened together.
+- `--snap-colors N`: for *heavily* gradiented logos. The default snap clusters
+  the source histogram into a handful of brand colors, which bands wide
+  gradients into a few coarse blobs. This adds an adaptive N-color palette
+  (median cut over the opaque pixels, sqrt-weighted so one big flat region
+  can't monopolize the budget) on top of the clustered brand colors, spending
+  the extra color budget proportionally on the gradients so they read as
+  smooth once traced, while still giving vtracer a posterized, ramp-free
+  image. Try 24–32. Still far fewer paths than `--no-snap`, which keeps every
+  anti-aliasing sliver.
+- `--clean`: repair white-background-removal residue *before* tracing — for
+  AI-generated logos or any source where a white background was deleted
+  imperfectly. Three fixes: anti-aliased edge pixels keep their blend against
+  the old white background (that's what shows up as a silver rim around every
+  shape in the trace) — the blend is exactly invertible given the alpha, so
+  their true colors are recovered; background is made fully transparent; and
+  the palette is then extracted from the repaired image. Background is decided
+  by *connectivity*, not color alone: near-white regions reachable from the
+  image border, plus enclosed pure-white pockets (letter counters, gaps
+  between shapes). Near-white highlights *inside* artwork survive. This also
+  means a source with an intact white background works directly — no manual
+  background removal needed, and doing it by hand first usually makes things
+  worse (matte fringes, ragged alpha).
 
 The run prints the final color count, e.g. `-> svgs/prm-logo.svg (97 KB, 5 colors)`.
 If that number looks too high, the source has more real colors (or snap-thresh is
 too low); too low means brand colors merged, so lower snap-thresh.
+
+## Smoothing (`--smooth N`, default off)
+
+vtracer traces region boundaries pixel-by-pixel, so every one-pixel
+irregularity in the quantized bitmap becomes a permanent squiggle in the
+vector path — blown up, the edges look fuzzy even though they're "vectors".
+`--smooth 5` runs a 5x5 majority vote over the quantized label map (at traced
+resolution, transparent counts as a label) before tracing, which straightens
+single-pixel jitter while leaving real corners alone. The difference at large
+render sizes is dramatic; combine with `--length-threshold 8` to also let
+vtracer fit longer spline segments (smaller file, smoother curves).
 
 ## Upscaling (`--upscale`, default 2)
 
