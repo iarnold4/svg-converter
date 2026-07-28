@@ -49,7 +49,7 @@ import glob
 import os
 import sys
 import numpy as np
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from scipy import interpolate, ndimage
 from skimage.morphology import medial_axis
 
@@ -520,7 +520,14 @@ def main() -> int:
             continue
         name = os.path.splitext(os.path.basename(inp))[0] + ".centerline.svg"
         out = out_file or os.path.join(out_dir or os.getcwd(), name)
-        info = convert(inp, out, args)
+        try:
+            info = convert(inp, out, args)
+        except UnidentifiedImageError:
+            hint = ("; render SVGs to a PNG first, e.g. "
+                    f"'python render.py {inp} --scale 3'"
+                    if inp.lower().endswith(".svg") else "")
+            print(f"  skip (not a raster image{hint}): {inp}", file=sys.stderr)
+            continue
         if info is None:
             continue
         out_kb = os.path.getsize(out) / 1024

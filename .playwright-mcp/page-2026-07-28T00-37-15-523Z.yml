@@ -1,0 +1,8 @@
+- main [ref=e3]:
+  - img "Yonderings logo" [ref=e13]
+  - generic [ref=e14]:
+    - heading "Yonderings" [level=1] [ref=e15]
+    - paragraph [ref=e16]: Plan the trip. Share the wander.
+  - generic [ref=e17]: Coming soon
+  - link "beta" [ref=e21] [cursor=pointer]:
+    - /url: /login
